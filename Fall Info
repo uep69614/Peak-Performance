@@ -1,0 +1,95 @@
+#include <amxmodx>
+#include <fakemeta>
+#include <engine>
+#include <colorchat>
+
+#define PLUGIN  "Fall Info"
+#define VERSION "1.0a"
+#define AUTHOR  "69614"
+
+#define MAX_PLAYERS 32
+
+const BUTTONS = ( IN_FORWARD | IN_BACK | IN_MOVELEFT | IN_MOVERIGHT | IN_JUMP );
+new g_OffGround , g_LandEntity , g_StartHeight[ MAX_PLAYERS + 1 ];
+
+new gMetrModif = 16;
+
+new const Prefix[] = "GM"
+
+public plugin_init() {
+	register_plugin(PLUGIN, VERSION, AUTHOR);
+	register_event( "DeathMsg", "eDeathMsg", "a" );
+	
+	register_forward( FM_CmdStart , "fw_FMCmdStart" );
+}
+public fw_FMCmdStart( id , uc_handle , seed )
+{
+	static Float:fOrigin[ 3 ];
+	
+	if ( ( get_uc( uc_handle , UC_Buttons ) | pev( id , pev_oldbuttons ) ) & BUTTONS )
+	{
+		if ( !( g_OffGround & ( 1 << ( id & 31 ) ) ) && !( pev( id , pev_flags ) & FL_ONGROUND ) )
+		{
+			pev( id , pev_origin , fOrigin );
+			g_StartHeight[ id ] = floatround( fOrigin[ 2 ] );
+			
+			g_OffGround |= ( 1 << ( id & 31 ) );
+			
+			if ( !g_LandEntity )
+				CreateLandEntity();
+			
+			entity_set_float( g_LandEntity , EV_FL_nextthink , get_gametime() + 0.01 );
+		}
+	}
+}
+public LandEntityThink( iEntity )
+{
+	static Float:fOrigin[ 3 ] , iPlayers[ 32 ] , iNum , id;
+	get_players( iPlayers , iNum );
+	
+	for ( new i = 0 ; i < iNum ; i++ )
+	{
+		if ( g_OffGround & ( 1 << ( ( id = iPlayers[ i ] ) & 31 ) ) )
+		{
+			if ( pev( id , pev_flags ) & FL_ONGROUND )
+			{
+				pev( id , pev_origin , fOrigin );
+				g_OffGround &= ~( 1 << ( id & 31 ) );
+				
+				if ( !g_OffGround )
+					break;
+			}
+		}
+	}
+	
+	if ( g_OffGround )
+		entity_set_float( g_LandEntity , EV_FL_nextthink , get_gametime() + 0.01 );
+}
+public eDeathMsg()
+{
+	new iKiller = read_data(1);
+	new iVictim = read_data(2);
+	new vName[33];
+	get_user_name( iVictim, vName, sizeof vName - 1 );
+
+	static Float:fOrigin[ 3 ];
+
+	new iWysokosc = ( g_StartHeight[ iVictim ] - floatround( fOrigin[ 2 ] ) ) / gMetrModif
+	
+	static sWeapon[16]; 
+	read_data( 4, sWeapon, sizeof( sWeapon ) - 1 );
+	
+	if( !iKiller && equal( sWeapon, "world", 5 ) ) 
+		switch(random(3)){
+		case 0: ColorChat( 0, RED, "[%s]^x04 %s^x01 nie zaliczyl bezpiecznego ladowania (^x04%i^x01 metr%s).", Prefix, vName, iWysokosc, iWysokosc > 4 ?"ow":"y" );
+		case 1: ColorChat( 0, RED, "[%s]^x04 %s^x01 nie mial dodatkowego spadochronu (^x04%i^x01 metr%s).", Prefix, vName, iWysokosc, iWysokosc > 4 ?"ow":"y" );
+		case 2: ColorChat( 0, RED, "[%s]^x04 %s^x01 zakonczyl zywot poprzez skok (^x04%i^x01 metr%s).", Prefix, vName, iWysokosc, iWysokosc > 4 ?"ow":"y" );
+		}
+	
+}
+CreateLandEntity()
+{
+g_LandEntity = create_entity( "info_target" );
+entity_set_string( g_LandEntity , EV_SZ_classname , "land_entity" );
+register_think( "land_entity" , "LandEntityThink" );    
+}  
