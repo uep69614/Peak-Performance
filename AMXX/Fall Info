@@ -17,7 +17,7 @@ new gMetrModif = 16;
 new const Prefix[] = "GM"
 
 public plugin_init() {
-	register_plugin(PLUGIN, VERSION, AUTHOR);
+	register_plugin( PLUGIN, VERSION, AUTHOR );
 	register_event( "DeathMsg", "eDeathMsg", "a" );
 	
 	register_forward( FM_CmdStart , "fw_FMCmdStart" );
